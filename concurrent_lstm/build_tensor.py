@@ -21,7 +21,7 @@ def adapt_data(data, index, col_drop=[], horizon=6):
     return X.iloc[horizon:]
 
 
-def dataframe_to_torch(serie, window, horizon, matrix, index=-1, min_sum=10):
+def dataframe_to_torch(serie, window, horizon, matrix, index=-1, min_sum=0):
     """
     Generation of a list of tuple of torch.tensor [X, Y] for data from a serie using a slinding windows
     :param serie_prod: pd.Series con
@@ -38,7 +38,7 @@ def dataframe_to_torch(serie, window, horizon, matrix, index=-1, min_sum=10):
         y = torch.tensor(serie['pdM'].iloc[i + horizon:i + horizon + window], dtype=torch.float32).reshape(window, 1,
                                                                                                            -1)
         if sum(y) >= min_sum:
-            if index > 0:
+            if index >= 0:
                 matrix[index + i].append([X, y])
             else:
                 matrix.append([X, y])
@@ -58,8 +58,8 @@ def test_train_generation(df, index, start_training_date, end_training_date, col
     :return:
     """
 
-    nb_ventes_mini = kwargs.get('nb_ventes_mini', 100)  # Minimal number of sales to keep a product
-    minimal_length = kwargs.get('minimal_length', 20)  # Minimal sales length to keep product
+    nb_ventes_mini = kwargs.get('nb_ventes_mini', 0)  # Minimal number of sales to keep a product
+    minimal_length = kwargs.get('minimal_length', 0)  # Minimal sales length to keep product
     min_sum = kwargs.get('min_sum_share', 0)  # Minimal sum of share in a tupple (X,y)
     horizon = kwargs.get('horizon', 6)
     window = kwargs.get('window', 20)
@@ -69,7 +69,7 @@ def test_train_generation(df, index, start_training_date, end_training_date, col
 
     if concurrent:
         list_tuple_training = [[] for i in range(size_period)]
-        list_tuple_testing = [[] for i in range(size_period)]
+        list_tuple_testing = [[] for i in range(300)]
     else:
         list_tuple_training = []
         list_tuple_testing = []
@@ -83,7 +83,7 @@ def test_train_generation(df, index, start_training_date, end_training_date, col
         if sum(serie_prod[index]) > nb_ventes_mini:
             min_date = max(start_training_date, min(serie_prod[serie_prod[index] > 0].index))
             max_date = min(end_training_date, max(serie_prod[serie_prod[index] > 0].index))
-            serie_prod = serie_prod[serie_prod.index > min_date]
+            serie_prod = serie_prod[serie_prod.index >= min_date]
 
             min_date = dt.datetime.strptime(min_date, '%Y-%m-%d')
             max_date = dt.datetime.strptime(max_date, '%Y-%m-%d')
@@ -103,8 +103,13 @@ def test_train_generation(df, index, start_training_date, end_training_date, col
 
                 dataframe_to_torch(adapt_data(train_df, index, col_drop=col_drop, horizon=horizon), window, horizon,
                                    list_tuple_training, index_start, min_sum=min_sum)
-                dataframe_to_torch(adapt_data(test_df, index, col_drop=col_drop, horizon=horizon), window, horizon,
-                                   list_tuple_testing, min(0, index_start), min_sum=min_sum)
+                if concurrent:
+                    dataframe_to_torch(adapt_data(test_df, index, col_drop=col_drop, horizon=horizon), window, horizon,
+                                   list_tuple_testing, 0 , min_sum=min_sum)
+                else:
+                    dataframe_to_torch(adapt_data(test_df, index, col_drop=col_drop, horizon=horizon), window, horizon,
+                                   list_tuple_testing, -1 , min_sum=min_sum)
+
 
     if verbose:
         print('Nb de produits initial  %s ' % len(products))
