@@ -50,7 +50,8 @@ class Build_Simple_Tensor(luigi.Task):
         index = 'Vente lisse'
         col_drop = ['Vente lisse', 'min_marche', 'Vente réelle', 'Niv. 1', 'Niv. 2', 'Niv. 3']
         list_train, list_test = test_train_generation(data, index, '2017-01-01', '2019-01-01', col_drop, verbose=True)
-        training_model(list_train, list_test, verbose=True)
+        n_param =  list_train[0][0].shape[2]
+        training_model(list_train, list_test, verbose=True, n_param=n_param)
 
 
 
