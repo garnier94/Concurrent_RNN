@@ -2,15 +2,14 @@ import torch
 import datetime as dt
 
 
-
-
-def filter_by_level(data,fam, niv='Niv. 3'):
+def filter_by_level(data, fam, niv='Niv. 3'):
     return data[data[niv] == fam]
 
-def add_sum(data, fam,index, niv= 'Niv. 3'):
+
+def add_sum(data, fam, index, niv='Niv. 3'):
     df = filter_by_level(data, fam, niv)
-    sum_df = df.groupby(level = 1)[index].sum()
-    return df.join(sum_df, rsuffix ='_somme')
+    sum_df = df.groupby(level=1)[index].sum()
+    return df.join(sum_df, rsuffix='_somme')
 
 
 def adapt_data(data, index, col_drop=[], horizon=6):
@@ -45,24 +44,19 @@ def dataframe_to_torch(serie, window, horizon, matrix, index=-1, min_sum=10):
                 matrix.append([X, y])
 
 
-def test_train_generation(df, index, start_training_date, end_training_date, col_drop, concurrent=False, verbose=False, **kwargs):
+def test_train_generation(df, index, start_training_date, end_training_date, col_drop, concurrent=False, verbose=False,
+                          **kwargs):
     """
-
+    Generation of a training and a testing set for our models
     :param df: Data Frame
-    :param index:
+    :param index: Name of the target colum
     :param start_training_date: start of the training period
     :param end_training_date: end of the training period
-    :param col_drop:
-    :param concurrent:
-    :param verbose:
-    :param kwargs:
+    :param col_drop: name of the useless columns in the data
+    :param concurrent: Whether we generate test for a concurrent modelisation or not
+    :param verbose: Should we display information on the process
     :return:
     """
-    list_tuple_training = []
-    list_tuple_testing = []
-
-    if verbose:
-        keeped_products = []
 
     nb_ventes_mini = kwargs.get('nb_ventes_mini', 100)  # Minimal number of sales to keep a product
     minimal_length = kwargs.get('minimal_length', 20)  # Minimal sales length to keep product
@@ -70,20 +64,32 @@ def test_train_generation(df, index, start_training_date, end_training_date, col
     horizon = kwargs.get('horizon', 6)
     window = kwargs.get('window', 20)
 
+    size_period = (dt.datetime.strptime(end_training_date, '%Y-%m-%d') - dt.datetime.strptime(start_training_date,
+                                                                                              '%Y-%m-%d')).days // 7
+
+    if concurrent:
+        list_tuple_training = [[] for i in range(size_period)]
+        list_tuple_testing = [[] for i in range(size_period)]
+    else:
+        list_tuple_training = []
+        list_tuple_testing = []
+
+    if verbose:
+        keeped_products = []
+
     products = set(df.index.get_level_values(0))
     for prod in products:
         serie_prod = df.loc[prod].fillna(0)
         if sum(serie_prod[index]) > nb_ventes_mini:
-            min_date = min(serie_prod[serie_prod[index] > 0].index)
+            min_date = max(start_training_date, min(serie_prod[serie_prod[index] > 0].index))
             max_date = min(end_training_date, max(serie_prod[serie_prod[index] > 0].index))
-            serie_prod  = serie_prod[serie_prod.index > min_date]
-
+            serie_prod = serie_prod[serie_prod.index > min_date]
 
             min_date = dt.datetime.strptime(min_date, '%Y-%m-%d')
             max_date = dt.datetime.strptime(max_date, '%Y-%m-%d')
 
             if concurrent:
-                index_start = (min_date-dt.datetime.strptime(start_training_date,'%Y-%m-%d')).days // 7
+                index_start = (min_date - dt.datetime.strptime(start_training_date, '%Y-%m-%d')).days // 7
             else:
                 index_start = -1
 
@@ -98,8 +104,7 @@ def test_train_generation(df, index, start_training_date, end_training_date, col
                 dataframe_to_torch(adapt_data(train_df, index, col_drop=col_drop, horizon=horizon), window, horizon,
                                    list_tuple_training, index_start, min_sum=min_sum)
                 dataframe_to_torch(adapt_data(test_df, index, col_drop=col_drop, horizon=horizon), window, horizon,
-                                   list_tuple_testing, min(0,index_start), min_sum=min_sum)
-
+                                   list_tuple_testing, min(0, index_start), min_sum=min_sum)
 
     if verbose:
         print('Nb de produits initial  %s ' % len(products))
