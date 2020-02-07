@@ -17,7 +17,7 @@ def init_model(**kwargs):
 
 def predict(model, step):
     """Effectue la """
-
+    pass
 
 def non_concurrent_training(model, optimizer, loss_function, list_tuple_training, list_tuple_testing, verbose=False,
                             keep_trace=False,

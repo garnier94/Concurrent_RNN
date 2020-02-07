@@ -13,7 +13,7 @@ index = 'Vente lisse'
 col_drop = [ 'Vente lisse', 'min_marche', 'Vente réelle', 'Niv. 1', 'Niv. 2', 'Niv. 3']
 list_train, list_test = test_train_generation(data, index, '2017-01-01', '2019-01-01', col_drop, concurrent=True, verbose=True)
 
-o= 50
+o= int(sys.argv[2])
 step= list_train[o]
 cur = torch.zeros(step[0][1].shape)
 for i in step:
