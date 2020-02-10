@@ -46,11 +46,18 @@ class Build_Simple_Tensor(luigi.Task):
     def run(self):
         with self.input()[0].open() as f_in:
             data = pd.read_csv(f_in, sep=';', index_col=['product','date'])
+
+
+        concurrent = True
         index = 'Vente lisse'
         col_drop = ['Vente lisse', 'min_marche', 'Vente réelle', 'Niv. 1', 'Niv. 2', 'Niv. 3']
-        list_train, list_test = test_train_generation(data, index, '2017-01-01', '2019-01-01', col_drop, verbose=True)
-        n_param =  list_train[0][0].shape[2]
-        training_model(list_train, list_test, verbose=True, n_param=n_param)
+        list_train, list_test = test_train_generation(data, index, '2017-01-01', '2019-01-01', col_drop, verbose=True, concurrent=concurrent)
+
+        if concurrent:
+            n_param = list_test[0][0][0].shape[2]
+        else:
+            n_param =  list_train[0][0].shape[2]
+        training_model(list_train, list_test, verbose=True,concurrent=concurrent,  n_param=n_param)
 
 
 

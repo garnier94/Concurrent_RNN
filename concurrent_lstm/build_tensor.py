@@ -58,9 +58,9 @@ def test_train_generation(df, index, start_training_date, end_training_date, col
     :return:
     """
 
-    nb_ventes_mini = kwargs.get('nb_ventes_mini', 0)  # Minimal number of sales to keep a product
-    minimal_length = kwargs.get('minimal_length', 0)  # Minimal sales length to keep product
-    min_sum = kwargs.get('min_sum_share', 0)  # Minimal sum of share in a tupple (X,y)
+    nb_ventes_mini = kwargs.get('nb_ventes_mini', 100)  # Minimal number of sales to keep a product
+    minimal_length = kwargs.get('minimal_length', 20)  # Minimal sales length to keep product
+    min_sum = kwargs.get('min_sum_share', 1)  # Minimal sum of share in a tupple (X,y)
     horizon = kwargs.get('horizon', 6)
     window = kwargs.get('window', 20)
 
