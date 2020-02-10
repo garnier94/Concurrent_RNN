@@ -1,3 +1,5 @@
+"""Script using luigi"""
+
 import pandas as pd
 import luigi
 from concurrent_lstm import DATA_CONCURRENCE, CONFIG_CONTAINER
@@ -5,6 +7,8 @@ from concurrent_lstm.build_tensor import add_sum, test_train_generation
 from concurrent_lstm.training import training_model
 from sklearn.preprocessing import MinMaxScaler
 import sys
+
+
 
 
 class Family_Data_Generation(luigi.Task):
@@ -19,7 +23,7 @@ class Family_Data_Generation(luigi.Task):
 
     def run(self):
         index = 'Vente lisse'
-        data = pd.read_csv( DATA_CONCURRENCE / "filtered_dt_for_nn.csv" , sep = ';')
+        data = pd.read_csv( DATA_CONCURRENCE / "filtered_dt_for_nn" , sep = ';')
         data.set_index(['product','date'], inplace = True)
         df = add_sum(data, self.family, index)
         #Scaling
@@ -43,12 +47,14 @@ class Build_Simple_Tensor(luigi.Task):
         with self.input()[0].open() as f_in:
             data = pd.read_csv(f_in, sep=';', index_col=['product','date'])
         index = 'Vente lisse'
-        col_drop = ['Unnamed: 0', 'Vente lisse', 'min_marche', 'Vente réelle', 'Niv. 1', 'Niv. 2', 'Niv. 3']
+        col_drop = ['Vente lisse', 'min_marche', 'Vente réelle', 'Niv. 1', 'Niv. 2', 'Niv. 3']
         list_train, list_test = test_train_generation(data, index, '2017-01-01', '2019-01-01', col_drop, verbose=True)
-        training_model(list_train, list_test, verbose=True)
+        n_param =  list_train[0][0].shape[2]
+        training_model(list_train, list_test, verbose=True, n_param=n_param)
 
 
 
 
 if __name__ == '__main__':
     luigi.run()
+
