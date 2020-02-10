@@ -19,7 +19,7 @@ class Family_Data_Generation(luigi.Task):
 
     def run(self):
         index = 'Vente lisse'
-        data = pd.read_csv( DATA_CONCURRENCE / "filtered_dt_for_nn" , sep = ';')
+        data = pd.read_csv( DATA_CONCURRENCE / "filtered_dt_for_nn.csv" , sep = ';')
         data.set_index(['product','date'], inplace = True)
         df = add_sum(data, self.family, index)
         #Scaling
