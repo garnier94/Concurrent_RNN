@@ -61,7 +61,7 @@ def non_concurrent_training(model, optimizer, loss_function, list_tuple_training
     i = 0
     count_early_stopping = 0
 
-    while (i < epochs and count_early_stopping < 10  ) or i < 40:
+    while (i < epochs and count_early_stopping < 5  ) or i < 40:
         i+=1
         cumulated_train_loss = 0
 
@@ -102,6 +102,7 @@ def non_concurrent_training(model, optimizer, loss_function, list_tuple_training
             count_early_stopping +=1
             old = erreur_valid
         else:
+            count_early_stopping = 0
             old = erreur_valid
 
         if keep_trace:
@@ -145,7 +146,7 @@ def concurrent_training_bis(model, optimizer, loss_function, list_tuple_training
     old =  1000
     i=0
     count_early_stopping = 0
-    while (i < epochs and count_early_stopping < 10) or i < 40:
+    while (i < epochs and count_early_stopping < 5) or i < 40:
         cumulated_train_loss = 0
         copy_train_list = list_tuple_training.copy()
         shuffle(copy_train_list)
@@ -183,6 +184,7 @@ def concurrent_training_bis(model, optimizer, loss_function, list_tuple_training
             count_early_stopping +=1
             old = erreur_valid
         else:
+            count_early_stopping = 0
             old = erreur_valid
 
         if verbose and early_stopping :
