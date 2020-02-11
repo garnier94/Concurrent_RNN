@@ -69,7 +69,7 @@ def test_train_generation(df, index, start_training_date, end_training_date, col
 
     if concurrent:
         list_tuple_training = [[] for i in range(size_period)]
-        list_tuple_testing = [[] for i in range(300)]
+        list_tuple_testing = [[] for i in range(50)]
     else:
         list_tuple_training = []
         list_tuple_testing = []

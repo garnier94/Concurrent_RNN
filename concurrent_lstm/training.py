@@ -2,6 +2,7 @@ from random import shuffle
 import torch
 import torch.nn as nn
 from concurrent_lstm.LSTM_Models import LSTM_Model
+from concurrent_lstm.systematisation import concurrent_evaluation_model
 
 
 def init_model(**kwargs):
@@ -15,8 +16,17 @@ def init_model(**kwargs):
     return model, loss_function, optimizer
 
 
+def sum_model_conc(list_tuple, n_calc):
+    sum_set = 0
+    for mat_step in list_tuple:
+        for _, y in mat_step:
+            sum_set += sum(y[-n_calc:, 0])
+    return sum_set
+
+
 def predict(model, step):
     """Effectue la """
+    pass
 
 
 def non_concurrent_training(model, optimizer, loss_function, list_tuple_training, list_tuple_testing, verbose=False,
@@ -24,8 +34,8 @@ def non_concurrent_training(model, optimizer, loss_function, list_tuple_training
                             **kwargs):
     err_train = []
     err_test = []
-    n_calc = kwargs.get("n_calc", 20)
-    epochs = kwargs.get("epoch", 100)
+    n_calc = kwargs.get("n_calc", 10)
+    epochs = kwargs.get("epoch", 200)
 
     if verbose:
         sum_train = 0
@@ -60,7 +70,7 @@ def non_concurrent_training(model, optimizer, loss_function, list_tuple_training
                 single_loss = loss_function(y_pred[-n_calc:, 0], y_test[-n_calc:, 0])
                 cumulated_test_loss += single_loss.item()
 
-            if i % 5 == 0:
+            if i % 20 == 0:
                 print('Epoch : %s/%s Training MAPE: %.4f  Testing MAPE: %.4f' % (
                     i, epochs, 100 * cumulated_train_loss / sum_train, 100 * cumulated_test_loss / sum_test))
         if keep_trace:
@@ -71,12 +81,13 @@ def non_concurrent_training(model, optimizer, loss_function, list_tuple_training
 def training_model(list_tuple_training, list_tuple_testing, concurrent=False, verbose=False, **kwargs):
     model, loss_function, optimizer = init_model(**kwargs)
     if concurrent:
-        concurrent_training(model, optimizer, loss_function, list_tuple_training, list_tuple_testing, verbose=True,
+        concurrent_training_bis(model, optimizer, loss_function, list_tuple_training, list_tuple_testing, verbose=True,
                             keep_trace=verbose, **kwargs)
     else:
         non_concurrent_training(model, optimizer, loss_function, list_tuple_training, list_tuple_testing,
                                 verbose=verbose,
                                 **kwargs)
+    return model, loss_function
 
 
 def concurrent_training(model, optimizer, loss_function, list_tuple_training, list_tuple_testing, verbose=False,
@@ -84,7 +95,7 @@ def concurrent_training(model, optimizer, loss_function, list_tuple_training, li
                         **kwargs):
     err_train_2 = []
     err_test_2 = []
-    n_calc = kwargs.get("n_calc", 20)
+    n_calc = kwargs.get("n_calc", 10)
     epochs = kwargs.get("epoch", 200)
 
     if verbose:
@@ -97,13 +108,12 @@ def concurrent_training(model, optimizer, loss_function, list_tuple_training, li
             for _, y_test in mat_step:
                 sum_test += sum(y_test[-n_calc:, 0])
 
-
-
     for i in range(epochs):
         cumulated_train_loss = 0
-        copy_train_list = list_tuple_training.copy()
-        shuffle(copy_train_list)
 
+        copy_train_list = list_tuple_training.copy()
+
+        shuffle(copy_train_list)
         optimizer.zero_grad()
         loss = 0
         for mat_step in copy_train_list:
@@ -131,31 +141,95 @@ def concurrent_training(model, optimizer, loss_function, list_tuple_training, li
 
         loss.backward()
         optimizer.step()
-        cumulated_test_loss = 0
-        sum_test = 0
-        for mat_step in list_tuple_testing:
+        erreur_test = concurrent_evaluation_model(model, loss_function, list_tuple_testing, current_sum=sum_test,
+                                                  verbose=False, **kwargs)
+
+        if verbose and i % 20:
+            print('Epoch : %s/%s Training MAPE: %.4f Testing MAPE: %.4f' % (
+                i, epochs, 100 * cumulated_train_loss / max(1, sum_train), erreur_test))
+        if keep_trace:
+            err_train_2.append(cumulated_train_loss)
+            err_test_2.append(erreur_test)
+
+
+def concurrent_training_bis(model, optimizer, loss_function, list_tuple_training, list_tuple_testing, verbose=False,
+                            keep_trace=False, early_stopping=True,
+                            **kwargs):
+    """
+    Train a concurrent model with early stopping
+    :param model: A torch.nn.Module model
+    :param optimizer: torch.optim.Optimizer optimizer use in the model
+    :param loss_function: torch.nn.L1Loss ou torch.nn.MSELoss
+    :param list_tuple_training: training_set
+    :param list_tuple_testing:
+    :param verbose: whether to disp
+    :param keep_trace:
+    :param early_stopping: whether to use early stoppindg
+    :return:
+    """
+    err_train_2 = []
+    err_test_2 = []
+    n_calc = kwargs.get("n_calc", 10)
+    epochs = kwargs.get("epoch", 200)
+    copy_test_list = list_tuple_testing.copy()
+    if early_stopping:
+        N_test = len(copy_test_list) // 2
+        set_valid = copy_test_list[-N_test:]
+        copy_test_list = copy_test_list[:N_test]
+    if verbose:
+        sum_train = sum_model_conc(list_tuple_training, n_calc)
+        sum_test = sum_model_conc(copy_test_list, n_calc)
+        if early_stopping:
+            sum_valid = sum_model_conc(set_valid, n_calc)
+    print(sum_test)
+    print(sum_valid)
+    old =  1000
+    i=0
+    count_early_stopping = 0
+    while i < epochs and count_early_stopping < 4:
+        cumulated_train_loss = 0
+        copy_train_list = list_tuple_training.copy()
+        shuffle(copy_train_list)
+        optimizer.zero_grad()
+        loss = 0
+        for mat_step in copy_train_list:
             if len(mat_step) != 0:
                 partial_sum = torch.tensor(mat_step[0][1])
                 for j in range(1, len(mat_step)):
                     partial_sum += mat_step[j][1]
-                optimizer.zero_grad()
                 model.reinitialize()
                 cp_mat_step = mat_step.copy()
-
-                sum_prediction = torch.zeros(y_train.shape)
-                for X_test, _ in cp_mat_step:
+                sum_prediction = torch.ones(partial_sum.shape)
+                for X_train, _ in cp_mat_step:
                     model.reinitialize()
-                    sum_prediction += model(X_test)
+                    sum_prediction += model(X_train)
 
+                shuffle(cp_mat_step)
                 for (X_train, y_train) in cp_mat_step:
                     model.reinitialize()
                     y_pred = partial_sum * model(X_train) / sum_prediction
                     single_loss = loss_function(y_pred[-n_calc:, 0], y_train[-n_calc:, 0])
-                    cumulated_test_loss += single_loss.item()
-                    sum_test += sum(y_train[-n_calc:, 0])
+                    loss += single_loss
+                    cumulated_train_loss += single_loss.item()
 
+        loss.backward()
+        optimizer.step()
+        erreur_test = concurrent_evaluation_model(model, loss_function, copy_test_list, current_sum=sum_test,
+                                                  verbose=False, **kwargs)
+        if early_stopping:
+            erreur_valid = concurrent_evaluation_model(model, loss_function, set_valid, current_sum=sum_valid,
+                                                  verbose=False, **kwargs)
+        i+=1
+        if erreur_valid > old:
+            count_early_stopping +=1
+            old = erreur_valid
+        else:
+            old = erreur_valid
 
-        print('Epoch : %s/%s Training MAPE: %.4f Testing MAPE: %.4f' % (i,epochs,100 * cumulated_train_loss / sum_train, 100 * cumulated_test_loss / sum_test))
+        if verbose and early_stopping :
+            print('Epoch : %s/%s Training MAPE: %.4f Validation MAPE: %.4f Testing MAPE: %.4f' % (
+                i, epochs, 100 * cumulated_train_loss / max(1, sum_train), erreur_valid, erreur_test))
         if keep_trace:
             err_train_2.append(cumulated_train_loss)
-            err_test_2.append(cumulated_test_loss)
+            err_test_2.append(erreur_test)
+    return i
