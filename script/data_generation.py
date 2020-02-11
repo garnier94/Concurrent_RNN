@@ -10,6 +10,7 @@ from sklearn.preprocessing import MinMaxScaler
 import sys
 import pdb
 
+
 class Family_Data_Generation(luigi.Task):
     family = luigi.Parameter()
 
@@ -35,7 +36,7 @@ class Family_Data_Generation(luigi.Task):
 class Build_Simple_Tensor(luigi.Task):
     family = luigi.Parameter()
     epoch = luigi.Parameter(default=200)
-    concurrent = luigi.Parameter(default=True)
+    concurrent = luigi.Parameter(default=False)
 
     def requires(self):
         return [Family_Data_Generation(family=self.family)]
@@ -55,27 +56,25 @@ class Build_Simple_Tensor(luigi.Task):
             n_param = list_test[0][0][0].shape[2]
         else:
             n_param = list_train[0][0].shape[2]
-        model, loss_function = training_model(list_train, list_test, verbose=True, concurrent=self.concurrent,
-                                              n_param=n_param, epoch=int(self.epoch))
+        model, loss_function, final_epoch = training_model(list_train, list_test, verbose=True,
+                                                           concurrent=self.concurrent,
+                                                           n_param=n_param, epoch=int(self.epoch))
         print(self.family)
         if self.concurrent:
             print('Modele concurrent')
             err = concurrent_evaluation_model(model, loss_function, list_test, verbose=True)
-            write_model(RESULTS / self.family + '_concurrent.txt', self.family, self.epoch, err)
+            write_model(RESULTS / self.family + '_concurrent.txt', self.family, final_epoch, err)
         else:
             print("Modele non concurrent")
             err = non_concurrent_evaluation_model(model, loss_function, list_test, verbose=True)
-            write_model(RESULTS / self.family + '_non_concurrent.txt', self.family, self.epoch, err)
-
-
-
+            write_model(RESULTS / self.family + '_non_concurrent.txt', self.family, final_epoch, err)
 
 
 class Multi_comparaison(luigi.Task):
     epoch = luigi.Parameter(default=200)
 
     def requires(self):
-        families = ['Evier', 'Cave à vin vieillissement (P)', 'Transats', 'Aspirateur souffleur','Lits simples']
+        families = ['Evier', 'Cave à vin vieillissement (P)', 'Transats', 'Aspirateur souffleur', 'Lits simples']
         return [Build_Simple_Tensor(family=fam, epoch=self.epoch, concurrent=True) for fam in families] + [
             Build_Simple_Tensor(family=fam, epoch=self.epoch, concurrent=False) for fam in families]
 
