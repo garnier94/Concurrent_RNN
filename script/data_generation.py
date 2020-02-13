@@ -4,7 +4,7 @@ import pandas as pd
 import luigi
 from concurrent_lstm import DATA_CONCURRENCE, CONFIG_CONTAINER, RESULTS
 from concurrent_lstm.build_tensor import add_sum, test_train_generation
-from concurrent_lstm.training import training_model
+from concurrent_lstm.training import training_model,reference_prediction
 from concurrent_lstm.systematisation import non_concurrent_evaluation_model, concurrent_evaluation_model, write_model
 from sklearn.preprocessing import MinMaxScaler
 import sys
@@ -22,7 +22,7 @@ class Family_Data_Generation(luigi.Task):
 
     def run(self):
         index = 'Vente lisse'
-        data = pd.read_csv(DATA_CONCURRENCE / "filtered_dt_for_nn", sep=';')
+        data = pd.read_csv(DATA_CONCURRENCE / "filtered_dt_for_nn.csv", sep=';')
         data.set_index(['product', 'date'], inplace=True)
         df = add_sum(data, self.family, index)
         # Scaling
@@ -36,7 +36,7 @@ class Family_Data_Generation(luigi.Task):
 class Build_Simple_Tensor(luigi.Task):
     family = luigi.Parameter()
     epoch = luigi.Parameter(default=200)
-    concurrent = luigi.Parameter(default=False)
+    concurrent = luigi.Parameter(default=True)
 
     def requires(self):
         return [Family_Data_Generation(family=self.family)]
@@ -47,7 +47,6 @@ class Build_Simple_Tensor(luigi.Task):
     def run(self):
         with self.input()[0].open() as f_in:
             data = pd.read_csv(f_in, sep=';', index_col=['product', 'date'])
-
         index = 'Vente lisse'
         col_drop = ['Vente lisse', 'min_marche', 'Vente réelle', 'Niv. 1', 'Niv. 2', 'Niv. 3']
         list_train, list_test = test_train_generation(data, index, '2017-01-01', '2019-01-01', col_drop, verbose=True,
@@ -56,8 +55,8 @@ class Build_Simple_Tensor(luigi.Task):
             n_param = list_test[0][0][0].shape[2]
         else:
             n_param = list_train[0][0].shape[2]
-        model, loss_function, final_epoch = training_model(list_train, list_test, verbose=True,
-                                                           concurrent=self.concurrent,
+        model, loss_function, final_epoch = training_model(list_train, list_test, verbose=True,early_stopping = False,
+                                                           concurrent=self.concurrent,n_hidden=4,
                                                            n_param=n_param, epoch=int(self.epoch))
         print(self.family)
         if self.concurrent:
@@ -70,11 +69,31 @@ class Build_Simple_Tensor(luigi.Task):
             write_model(RESULTS / self.family + '_non_concurrent.txt', self.family, final_epoch, err)
 
 
+class Build_Reference(luigi.Task):
+    family = luigi.Parameter()
+
+
+    def requires(self):
+        return [Family_Data_Generation(family=self.family)]
+
+    def run(self):
+        with self.input()[0].open() as f_in:
+            data = pd.read_csv(f_in, sep=';', index_col=['product', 'date'])
+        index = 'Vente lisse'
+        col_drop = ['Vente lisse', 'min_marche', 'Vente réelle', 'Niv. 1', 'Niv. 2', 'Niv. 3']
+        list_train, list_test = test_train_generation(data, index, '2017-01-01', '2019-01-01', col_drop, verbose=True,
+                                                      concurrent=False, reference = True)
+        mape = reference_prediction(list_test)
+        print('MAPE Ref : %.4f' % mape)
+
+
+
 class Multi_comparaison(luigi.Task):
     epoch = luigi.Parameter(default=200)
 
     def requires(self):
         families = ['Evier', 'Cave à vin vieillissement (P)', 'Transats', 'Aspirateur souffleur', 'Lits simples']
+        #families =['Mijoteur - Wok','Perceuse',"TV LED FHD entre 48 et 50''"'Congelateur (P)','Bibliothèque - étagère']
         return [Build_Simple_Tensor(family=fam, epoch=self.epoch, concurrent=True) for fam in families] + [
             Build_Simple_Tensor(family=fam, epoch=self.epoch, concurrent=False) for fam in families]
 

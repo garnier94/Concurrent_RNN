@@ -6,8 +6,9 @@ from concurrent_lstm.systematisation import concurrent_evaluation_model
 
 
 def init_model(**kwargs):
-    learning_rate = kwargs.get('learning_rate', 3e-3)
-    n_hidden = kwargs.get('n_hidden', 20)
+
+    learning_rate = kwargs.get('learning_rate', 5e-3)
+    n_hidden = kwargs.get('n_hidden', 50)
     n_param = kwargs.get('n_param', 9)
 
     model = LSTM_Model(n_param, n_hidden, n_layer=kwargs.get('n_layer', 1))
@@ -42,13 +43,12 @@ def non_concurrent_training(model, optimizer, loss_function, list_tuple_training
     err_test = []
     n_calc = kwargs.get("n_calc", 10)
     epochs = kwargs.get("epoch", 200)
+    copy_test_list = list_tuple_testing.copy()
 
     if early_stopping:
-        copy_test_list = list_tuple_testing.copy()
-        if early_stopping:
-            N_test = len(copy_test_list) // 2
-            set_valid = copy_test_list[-N_test:]
-            copy_test_list = copy_test_list[:N_test]
+        N_test = len(copy_test_list) // 2
+        set_valid = copy_test_list[-N_test:]
+        copy_test_list = copy_test_list[:N_test]
 
 
     if verbose:
@@ -86,7 +86,7 @@ def non_concurrent_training(model, optimizer, loss_function, list_tuple_training
                 y_pred = model.predict_non_concurrent_step(X_test)
                 single_loss = loss_function(y_pred[-n_calc:, 0], y_test[-n_calc:, 0])
                 cumulated_test_loss += single_loss.item()
-            if i % 20 == 0:
+            if True:
                 print('Epoch : %s/%s Training MAPE: %.4f  Testing MAPE: %.4f' % (
                     i, epochs, 100 * cumulated_train_loss / sum_train, 100 * cumulated_test_loss / sum_test))
 
@@ -96,19 +96,30 @@ def non_concurrent_training(model, optimizer, loss_function, list_tuple_training
                 y_pred = model.predict_non_concurrent_step(X_test)
                 single_loss = loss_function(y_pred[-n_calc:, 0], y_test[-n_calc:, 0])
                 cumulated_valid_loss += single_loss.item()
-
-        erreur_valid=cumulated_valid_loss/sum_valid
-        if erreur_valid > old:
-            count_early_stopping +=1
-            old = erreur_valid
-        else:
-            count_early_stopping = 0
-            old = erreur_valid
+            erreur_valid=cumulated_valid_loss/sum_valid
+            if erreur_valid > old:
+                count_early_stopping +=1
+                old = erreur_valid
+            else:
+                count_early_stopping = 0
+                old = erreur_valid
 
         if keep_trace:
             err_train.append(cumulated_train_loss)
             err_test.append(cumulated_test_loss)
     return i
+
+
+def reference_prediction(list_tuple, **kwargs):
+    sum_set = 0
+    sum_loss = 0
+    n_calc = kwargs.get("n_calc", 10)
+    loss_function = nn.L1Loss(reduction='sum')
+
+    for _, y , y_t in list_tuple:
+        sum_set += sum(y[-n_calc:, 0])
+        sum_loss += loss_function(y[-n_calc:, 0], y_t[-n_calc:, 0]).item()
+    return 100 * sum_loss / sum_set
 
 
 
@@ -147,6 +158,7 @@ def concurrent_training_bis(model, optimizer, loss_function, list_tuple_training
     i=0
     count_early_stopping = 0
     while (i < epochs and count_early_stopping < 5) or i < 40:
+        i += 1
         cumulated_train_loss = 0
         copy_train_list = list_tuple_training.copy()
         shuffle(copy_train_list)
@@ -179,17 +191,15 @@ def concurrent_training_bis(model, optimizer, loss_function, list_tuple_training
         if early_stopping:
             erreur_valid = concurrent_evaluation_model(model, loss_function, set_valid, current_sum=sum_valid,
                                                   verbose=False, **kwargs)
-        i+=1
-        if erreur_valid > old:
-            count_early_stopping +=1
-            old = erreur_valid
-        else:
-            count_early_stopping = 0
-            old = erreur_valid
-
-        if verbose and early_stopping :
-            print('Epoch : %s/%s Training MAPE: %.4f Validation MAPE: %.4f Testing MAPE: %.4f' % (
-                i, epochs, 100 * cumulated_train_loss / max(1, sum_train), erreur_valid, erreur_test))
+            if erreur_valid > old:
+                count_early_stopping +=1
+                old = erreur_valid
+            else:
+                count_early_stopping = 0
+                old = erreur_valid
+        if verbose :
+            print('Epoch : %s/%s Training MAPE: %.4f  Testing MAPE: %.4f' % (
+                i, epochs, 100 * cumulated_train_loss / max(1, sum_train),  erreur_test))
         if keep_trace:
             err_train_2.append(cumulated_train_loss)
             err_test_2.append(erreur_test)
@@ -201,16 +211,13 @@ def training_model(list_tuple_training, list_tuple_testing, concurrent=False, ve
     if concurrent:
         final_epoch = concurrent_training_bis(model, optimizer, loss_function, list_tuple_training, list_tuple_testing, verbose=True,
                             keep_trace=verbose, **kwargs)
-
     else:
         final_epoch = non_concurrent_training(model, optimizer, loss_function, list_tuple_training, list_tuple_testing,
-                                verbose=verbose,
-                                **kwargs)
+                                verbose=verbose, **kwargs)
     return model, loss_function, final_epoch
 
 
 #Version antérieure
-
 """
 def concurrent_training(model, optimizer, loss_function, list_tuple_training, list_tuple_testing, verbose=False,
                         keep_trace=False,
