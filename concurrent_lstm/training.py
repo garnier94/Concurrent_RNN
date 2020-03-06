@@ -1,3 +1,4 @@
+
 from random import shuffle
 import torch
 import torch.nn as nn
@@ -212,6 +213,7 @@ def training_model(list_tuple_training, list_tuple_testing, concurrent=False, ve
         final_epoch, err_train, err_test = non_concurrent_training(model, optimizer, loss_function, list_tuple_training, list_tuple_testing,
                                 verbose=verbose, **kwargs)
     return model, loss_function, final_epoch, err_train, err_test
+
 
 
 

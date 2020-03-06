@@ -101,7 +101,7 @@ def test_train_generation(df, index, start_training_date, end_training_date, col
             else:
                 index_start = -1
 
-            if (max_date - min_date).days // 7 > minimal_length:
+            if (max_date - min_date).days // 7 >= minimal_length:
                 if verbose:
                     keeped_products.append(prod)
                 train_df = serie_prod[serie_prod.index < dt.datetime.strftime(max_date, '%Y-%m-%d')]
