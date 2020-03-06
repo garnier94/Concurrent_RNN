@@ -18,10 +18,11 @@ def adapt_data(data, index, col_drop=[], horizon=6):
     X.drop(columns=col_drop, inplace=True)
     X['pdM'] = 100 * (data[index] / data[index + '_somme'])
     X['pdM_shift'] = X['pdM'].shift(horizon)
-    return X.iloc[horizon:]
+    X['pdM_shift_1'] = X['pdM'].shift(horizon+1)
+    return X.iloc[horizon+1:]
 
 
-def dataframe_to_torch(serie, window, horizon, matrix, index=-1, min_sum=0, reference = False):
+def dataframe_to_torch(serie, window, horizon, matrix, index=-1, min_sum=5, reference = False):
     """
     Generation of a list of tuple of torch.tensor [X, Y] for data from a serie using a slinding windows
     :param serie_prod: pd.Series con
@@ -33,8 +34,8 @@ def dataframe_to_torch(serie, window, horizon, matrix, index=-1, min_sum=0, refe
     """
     N = len(serie)
     for i in range(N - window  + 1):
-        #X = torch.tensor(serie.drop(columns='pdM').iloc[i:i+window, :].values, dtype=torch.float32).reshape(window, 1,-1)
-        X = torch.tensor(serie['pdM_shift'].iloc[i:i+window], dtype=torch.float32).reshape(window,1,-1)
+        X = torch.tensor(serie.drop(columns='pdM').iloc[i:i+window, :].values, dtype=torch.float32).reshape(window, 1,-1)
+        #X = torch.tensor(serie[['pdM_shift','pdM_shift_1']].iloc[i:i+window,:].values, dtype=torch.float32).reshape(window,1,-1)
         y = torch.tensor(serie['pdM'].iloc[i:i+window], dtype=torch.float32).reshape(window, 1,-1)
         y_ref = torch.tensor(serie['pdM_shift'].iloc[i:i+window], dtype=torch.float32).reshape(window,1,-1)
         if sum(y) >= min_sum:
