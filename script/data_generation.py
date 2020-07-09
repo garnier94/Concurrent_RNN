@@ -7,8 +7,6 @@ from concurrent_lstm.build_tensor import add_sum, test_train_generation
 from concurrent_lstm.training import training_model, reference_prediction
 from concurrent_lstm.systematisation import non_concurrent_evaluation_model, concurrent_evaluation_model, write_model
 from sklearn.preprocessing import MinMaxScaler
-import sys
-import pdb
 
 
 class Family_Data_Generation(luigi.Task):
@@ -50,15 +48,16 @@ class Build_Simple_Tensor(luigi.Task):
             data = pd.read_csv(f_in, sep=';', index_col=['product', 'date'])
         index = 'Vente lisse'
         col_drop = ['Vente lisse', 'min_marche', 'Vente réelle', 'Niv. 1', 'Niv. 2', 'Niv. 3']
-        list_train, list_test = test_train_generation(data, index, '2017-01-01', '2019-01-01', col_drop, verbose=True,
+        list_train, list_test = test_train_generation(data, index, '2017-01-01', '2019-03-01', col_drop, verbose=True,
                                                       concurrent=self.concurrent)
         if self.concurrent:
             n_param = list_test[0][0][0].shape[2]
         else:
             n_param = list_train[0][0].shape[2]
-        model, loss_function, final_epoch,_,_ = training_model(list_train, list_test, verbose=True, early_stopping=False,
-                                                           concurrent=self.concurrent, n_hidden=4,
-                                                           n_param=n_param, epoch=int(self.epoch))
+        model, loss_function, final_epoch, _, _ = training_model(list_train, list_test, verbose=True,
+                                                                 early_stopping=False,
+                                                                 concurrent=self.concurrent, n_hidden=4,
+                                                                 n_param=n_param, epoch=int(self.epoch))
         print(self.family)
         if self.concurrent:
             print('Modele concurrent')
@@ -81,7 +80,7 @@ class Build_Reference(luigi.Task):
             data = pd.read_csv(f_in, sep=';', index_col=['product', 'date'])
         index = 'Vente lisse'
         col_drop = ['Vente lisse', 'min_marche', 'Vente réelle', 'Niv. 1', 'Niv. 2', 'Niv. 3']
-        list_train, list_test = test_train_generation(data, index, '2017-01-01', '2019-01-01', col_drop, verbose=True,
+        list_train, list_test = test_train_generation(data, index, '2017-01-01', '2019-03-01', col_drop, verbose=True,
                                                       concurrent=False, reference=True)
         mape = reference_prediction(list_test)
         print('MAPE Ref : %.4f' % mape)
@@ -91,12 +90,9 @@ class Multi_comparaison(luigi.Task):
     epoch = luigi.Parameter(default=200)
 
     def requires(self):
-        # families = ['Evier', 'Cave à vin vieillissement (P)', 'Transats', 'Aspirateur souffleur', 'Lits simples']
-        families = ['Mijoteur - Wok', 'Perceuse', "TV LED FHD entre 48 et 50''", 'Congelateur (P)',
-                    'Bibliothèque - étagère', 'Tronçonneuse', 'Claviers & Pianos', 'Jeux éducatifs électroniques']
+        families = ['Autocuiseurs', 'Tondeuse électrique', "TV LED 4K entre 42 et 47''", 'Babyphone', 'Macbook',
+                    'Canapé droit fixe', 'CAble optique']
         return [Build_Simple_Tensor(family=fam, epoch=self.epoch, concurrent=True) for fam in families]
-
-
 
 if __name__ == '__main__':
     luigi.run()

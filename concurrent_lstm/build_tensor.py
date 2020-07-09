@@ -17,9 +17,11 @@ def adapt_data(data, index, col_drop=[], horizon=6):
     X = data.copy()
     X.drop(columns=col_drop, inplace=True)
     X['pdM'] = 100 * (data[index] / data[index + '_somme'])
+    X['pdM_shift_2'] = X['pdM'].shift(horizon + 2)
+    X['pdM_shift_3'] = X['pdM'].shift(horizon + 3)
     X['pdM_shift'] = X['pdM'].shift(horizon)
     X['pdM_shift_1'] = X['pdM'].shift(horizon+1)
-    return X.iloc[horizon+1:]
+    return X.iloc[horizon+3:]
 
 
 def dataframe_to_torch(serie, window, horizon, matrix, index=-1, min_sum=5, reference = False):
@@ -67,10 +69,10 @@ def test_train_generation(df, index, start_training_date, end_training_date, col
     """
 
     nb_ventes_mini = kwargs.get('nb_ventes_mini', 100)  # Minimal number of sales to keep a product
-    minimal_length = kwargs.get('minimal_length', 20)  # Minimal sales length to keep product
+    minimal_length = kwargs.get('minimal_length', 40)  # Minimal sales length to keep product
     min_sum = kwargs.get('min_sum_share', 1)  # Minimal sum of share in a tupple (X,y)
     horizon = kwargs.get('horizon', 6)
-    window = kwargs.get('window', 20)
+    window = kwargs.get('window', 30)
 
     size_period = (dt.datetime.strptime(end_training_date, '%Y-%m-%d') - dt.datetime.strptime(start_training_date,
                                                                                               '%Y-%m-%d')).days // 7
@@ -101,7 +103,7 @@ def test_train_generation(df, index, start_training_date, end_training_date, col
             else:
                 index_start = -1
 
-            if (max_date - min_date).days // 7 >= minimal_length:
+            if (max_date - min_date).days // 7 > minimal_length:
                 if verbose:
                     keeped_products.append(prod)
                 train_df = serie_prod[serie_prod.index < dt.datetime.strftime(max_date, '%Y-%m-%d')]
