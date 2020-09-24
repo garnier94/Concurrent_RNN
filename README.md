@@ -1,3 +1,3 @@
 # Concurrent RNN
 
-This code needs to be improved, refactored and commented. I'm currently working on it.
+This code has been improved in https://github.com/garnier94/Concurrent_Neural_Network. 
